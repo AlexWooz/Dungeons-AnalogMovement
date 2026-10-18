@@ -21,8 +21,22 @@ The general modding constraints (Blueprint only, Blueprint Loader levels, no UE4
 - **Hero movement component:** `CharMoveComp` (`PlayerCharacterMovementComponent`) on `BP_AlexCharacter` / `BP_PlayerCharacter`.
 
 ## The CharacterAnimInstance stub
-This is the same trick as ThirdPersonCam's `BasePlayerController` stub. `Source/Dungeons/CharacterAnimInstance.h` declares `UCharacterAnimInstance : UAnimInstance` with `RelativeMoveSpeed` and `LocomotionWalkVariedPlayRate` as `BlueprintReadWrite` floats. Cooked Blueprints reference `/Script/Dungeons.CharacterAnimInstance:<name>` and resolve it against the game's class at runtime. Both property types are inferred and need confirming in-game.
+This is the same trick as ThirdPersonCam's `BasePlayerController` stub. The import table shows the AnimBP's native inputs aren't direct members of the anim instance. They live in a struct:
+- `/Script/Dungeons.CharacterAnimInstance.StateMachineConditions` (StructProperty)
+- of type `/Script/Dungeons.AnimGraphStateConditions`, with `RelativeMoveSpeed` (float), `LocomotionWalkVariedPlayRate` (float) and `FallBackLocomotionBlend` (enum, type unknown, not stubbed).
 
-## Open questions (answered by the probe)
-- Does writing `MaxWalkSpeed` every tick stick, or does the game override it?
-- Is `RelativeMoveSpeed` velocity ÷ a fixed base speed (then walking is free), or ÷ the current max?
+`Source/Dungeons/CharacterAnimInstance.h` mirrors that layout. The first version declared the floats directly on the class; those reads silently returned 0 in-game because the names didn't resolve.
+
+To read the values, use `Anim → StateMachineConditions → Break`. To write them, use `Set Members in AnimGraphStateConditions` on that getter, then `Set StateMachineConditions` with the Struct Out. The struct is resolved to the real type at runtime, so fields we don't stub are preserved.
+
+## Probe findings (2026-10-18, camp)
+- **Speed:** writing `CharMoveComp.MaxWalkSpeed` every tick works. Velocity equals the value written. The game resets it to the hero's base speed (700) every frame, so the probe re-detects the base each tick and re-writes it.
+- **RelativeMoveSpeed** is the hero's *nominal* speed / 600 (1.167 at 700) whenever they're moving, and 0 at rest. It ignores the actual velocity, so the blendspace stays on the run. `LocomotionWalkVariedPlayRate` is about 2.7–2.8 while moving (it differs per session) and 0 at rest.
+- **The game recomputes the struct every frame**, before our tick. Writing `RelativeMoveSpeed = Velocity / 600` works only if the hero's **mesh ticks after our actor**: `Char.Mesh → Add Tick Prerequisite Actor(self)`. With that, the AnimBP blends to the game's own walk animation. Our actor already ticks after `CharMoveComp` (`Add Tick Prerequisite Component(Move)`), so the movement uses last frame's write.
+- **Stick reading:** `Get Input Analog Key State (Gamepad Left Thumbstick X/Y)` has a small deadzone the game doesn't have. The game reads the stick natively, as it does for the stick-dodge. At the slightest tilt Unreal reports 0 while the hero still moves. The probe keeps a `PadActive` flag (set by any stick input, cleared by Left Mouse Button with Consume Input off) and treats "pad active, stick 0" as the minimum speed. Both the speed scaling and the anim override are gated on `PadActive`.
+- The game has no keyboard movement, only gamepad axes and mouse click-to-move.
+
+## Open questions
+- **Foot sliding:** the blendspace PlayRate comes from `LocomotionWalkVariedPlayRate`. Below WalkRun 0.3 the blend clamps to the pure walk (RateScale 2.0), so slow movement probably steps too fast. Overriding the play rate, tuned per speed, should fix it (plan Phase 2b).
+- Speed boosts (potions, Swiftfooted): does `BaseSpeed` follow them? Not tested yet.
+- Behaviour during rolls, attacks, and in missions (only camp has been tested).
