@@ -1,5 +1,7 @@
 # Phase 0 probe: BP_AMProbe
 
+> **Historical.** This is the original build guide for the discovery probe. The probe has since become `BP_AnalogMove`, and several steps changed after testing: the stub uses the `StateMachineConditions` struct, the hero mesh ticks after the actor, there's `PadActive`, and F8 now toggles the debug readout. `docs/TECHNICAL.md` describes the current design.
+
 A throwaway actor that answers two questions in one play session:
 1. Does writing `MaxWalkSpeed` every tick actually slow the hero, or does the game override it?
 2. Does the native `RelativeMoveSpeed` drop along with the speed? If it does, the AnimBP blends to its own walk animation and we get a real walk cycle for free.
