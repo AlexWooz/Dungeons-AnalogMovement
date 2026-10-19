@@ -6,11 +6,11 @@ A Blueprint mod for **Minecraft Dungeons** (Steam, v1.17.0.0, UE 4.22) that make
 
 ## Install
 1. Install Dungeons Blueprint Loader 1.0 (`Blueprint-Loader.pak`) in your `~mods` folder.
-2. Put `AnalogMove.pak` in `<Steam>\steamapps\common\MinecraftDungeons\Dungeons\Content\Paks\~mods\`.
+2. Download `AnalogMove.pak` from [Releases](../../releases) and put it in `<Steam>\steamapps\common\MinecraftDungeons\Dungeons\Content\Paks\~mods\`.
 
 To turn the mod off, remove the .pak. There is no in-game toggle. **F8** shows or hides a debug readout.
 
-It is independent of [ThirdPersonCam](../Dungeons-ThirdPersonCam), and the two can be installed together.
+It is independent of [ThirdPersonCam](https://github.com/AlexWooz/Dungeons-ThirdPersonCam), and the two can be installed together.
 
 ## Building
 It uses the same setup as ThirdPersonCam: Dokucraft's Dungeons Mod Kit at `..\Dungeons-Mod-Kit`, UE 4.22, and VS 2019 Build Tools for the editor-only stub.
