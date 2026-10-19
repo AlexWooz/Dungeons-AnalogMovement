@@ -48,12 +48,20 @@ FallBackLocomotionBlend   → many state-machine transition conditions (byte/enu
 - The blendspace's play rate is never below 1, so the AnimBP can't slow the walk below its 2× RateScale. To slow it, we use `Mesh.GlobalAnimRateScale`, applied only while `PadActive`, moving (velocity > 10) and **no montage is playing**, so attacks, rolls and artifacts keep normal speed. It's reset to 1 on EndPlay.
 
 ## Stride matching
-The rate was tuned in-game with a temporary speed lock and trim keys, at 20/35/50/75/100% of base speed. The matching rates were 0.4, 0.65, 0.75, 0.95 and 1.0. Those values fit a simple stride model: the walk sample covers about 350 per second, the run about 700, and the ground speed in between follows the walk→run blend (WalkRun 0.3 → 1.2 = speed 180 → 720):
+**v1.0** was tuned from the isometric camera at 20/35/50/75/100% of base speed. The matching rates were 0.4, 0.65, 0.75, 0.95 and 1.0, fitted as `GroundSpeed = MapRangeClamped(Vel, 180..720 -> 350..700)`. Close-ups with the third-person camera showed the slow end still stepping too fast.
+
+**v1.1** was re-tuned in third-person close-up at the slow end. The measured AnimRate was 0.36 at speed 140, 0.594 at 245 and 0.80 at 350; 525 and 700 were unchanged. The implied ground speed (Velocity / AnimRate) bends at about 350: the walk dominates and barely rises (389 → 437), then the run blends in quickly (437 → 700). Two clamped ranges added together follow that bend without branching:
 ```
-GroundSpeed = MapRangeClamped(Velocity, 180..720 -> 350..700)
-AnimRate    = Clamp(Velocity / GroundSpeed, 0.3, 1.0)   // predicts 0.40, 0.63, 0.76, 0.91, 1.0
+GroundSpeed = MapRangeClamped(Vel, 140..350 -> 389..437)
+            + MapRangeClamped(Vel, 350..700 ->   0..263)
+AnimRate    = Clamp(Vel / GroundSpeed, 0.3, 1.0) * RateMul   // RateMul = 1; predicts 0.36, 0.595, 0.80, 0.92, 1.0
 ```
-It works from the actual velocity, so it stays correct with speed boosts. Above base speed it stays at 1, and the AnimBP's own `Max(RelativeMoveSpeed, 1)` play rate takes over. The tuning keys were removed afterwards.
+It works from the actual velocity, so it stays correct with speed boosts. Above base speed it stays at 1, and the AnimBP's own `Max(RelativeMoveSpeed, 1)` play rate takes over.
+
+### Tuning keys (only while the F8 readout is visible)
+- **`]` / `[`**: `RateMul` ±0.05 (min 0.05), a trim applied after the clamp.
+- **`\`**: cycles a speed lock through off / 0.2 / 0.35 / 0.5 / 0.75 / 1.0 of base speed. Push the stick fully and the mod holds that exact speed. The lock only applies while the readout is shown.
+- Tuning procedure: at each lock, trim until a planted foot stays still on the ground, then note **AnimRate**. Measure each lock starting from RateMul 1.0, and refit the formula from the AnimRate values (ground speed = speed / AnimRate). Don't ship a non-1 RateMul.
 
 ## Lifecycle
 - **F8** toggles the debug readout (`W_AMDebug`), which is hidden by default. `SetText` only runs while it's shown.

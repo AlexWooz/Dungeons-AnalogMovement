@@ -8,7 +8,7 @@ A Blueprint mod for **Minecraft Dungeons** (Steam, v1.17.0.0, UE 4.22) that make
 1. Install Dungeons Blueprint Loader 1.0 (`Blueprint-Loader.pak`) in your `~mods` folder.
 2. Download `AnalogMove.pak` from [Releases](../../releases) and put it in `<Steam>\steamapps\common\MinecraftDungeons\Dungeons\Content\Paks\~mods\`.
 
-To turn the mod off, remove the .pak. There is no in-game toggle. **F8** shows or hides a debug readout.
+To turn the mod off, remove the .pak. There is no in-game toggle. **F8** shows or hides a debug readout (it also enables the stride-tuning keys, described in docs/TECHNICAL.md).
 
 It is independent of [ThirdPersonCam](https://github.com/AlexWooz/Dungeons-ThirdPersonCam), and the two can be installed together.
 
