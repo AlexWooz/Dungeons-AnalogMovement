@@ -2,7 +2,7 @@
 
 A Blueprint mod for **Minecraft Dungeons** (Steam, v1.17.0.0, UE 4.22) that makes the hero's speed follow how far you tilt the left stick: half tilt means half speed. At low speed the game's own walk animation plays and blends into the run as you tilt further.
 
-**Status:** core feature working (tested in camp). Next: stride matching so the feet don't slide. See [docs/TECHNICAL.md](docs/TECHNICAL.md).
+**Status:** feature-complete and tested in camp and missions: analog speed, the game's walk animation at low speed, and stride-matched footsteps. See [docs/TECHNICAL.md](docs/TECHNICAL.md).
 
 ## Install
 1. Install Dungeons Blueprint Loader 1.0 (`Blueprint-Loader.pak`) in your `~mods` folder.

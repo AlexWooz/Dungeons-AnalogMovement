@@ -47,7 +47,17 @@ FallBackLocomotionBlend   → many state-machine transition conditions (byte/enu
 - **`LocomotionWalkVariedPlayRate` is not a play rate.** It drives the leg-layer blend weight: how much the legs follow the locomotion while the upper body plays an action. **Never override it.** Lowering it half-blends the legs out.
 - The blendspace's play rate is never below 1, so the AnimBP can't slow the walk below its 2× RateScale. To slow it, we use `Mesh.GlobalAnimRateScale`, applied only while `PadActive`, moving (velocity > 10) and **no montage is playing**, so attacks, rolls and artifacts keep normal speed. It's reset to 1 on EndPlay.
 
-## Open questions
-- **Foot sliding:** tune `GlobalAnimRateScale` per speed with the speed lock (Backslash) and `RateMul` ([ / ]), then fit a curve (plan Phase 2b).
-- Speed boosts (potions, Swiftfooted): does `BaseSpeed` follow them? Not tested yet.
-- Behaviour during rolls, attacks, and in missions (only camp has been tested).
+## Stride matching
+The rate was tuned in-game with a temporary speed lock and trim keys, at 20/35/50/75/100% of base speed. The matching rates were 0.4, 0.65, 0.75, 0.95 and 1.0. Those values fit a simple stride model: the walk sample covers about 350 per second, the run about 700, and the ground speed in between follows the walk→run blend (WalkRun 0.3 → 1.2 = speed 180 → 720):
+```
+GroundSpeed = MapRangeClamped(Velocity, 180..720 -> 350..700)
+AnimRate    = Clamp(Velocity / GroundSpeed, 0.3, 1.0)   // predicts 0.40, 0.63, 0.76, 0.91, 1.0
+```
+It works from the actual velocity, so it stays correct with speed boosts. Above base speed it stays at 1, and the AnimBP's own `Max(RelativeMoveSpeed, 1)` play rate takes over. The tuning keys were removed afterwards.
+
+## Lifecycle
+- **F8** toggles the debug readout (`W_AMDebug`), which is hidden by default. `SetText` only runs while it's shown.
+- **EndPlay**: on a level change, the actor removes its widget (otherwise the camp's readout stays frozen on screen in the mission) and resets `MaxWalkSpeed` and `GlobalAnimRateScale`. On **Quit** (`EndPlayReason == Quit`), it does nothing: calling `RemoveFromParent` during shutdown crashed the game on exit.
+
+## Verified (2026-10-18)
+Camp and missions: speed boosts, rolls, attacks while moving, mouse click-to-move, F8 across level changes, and clean quits from camp and a mission.
