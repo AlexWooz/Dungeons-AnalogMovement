@@ -36,7 +36,18 @@ To read the values, use `Anim → StateMachineConditions → Break`. To write th
 - **Stick reading:** `Get Input Analog Key State (Gamepad Left Thumbstick X/Y)` has a small deadzone the game doesn't have. The game reads the stick natively, as it does for the stick-dodge. At the slightest tilt Unreal reports 0 while the hero still moves. The probe keeps a `PadActive` flag (set by any stick input, cleared by Left Mouse Button with Consume Input off) and treats "pad active, stick 0" as the minimum speed. Both the speed scaling and the anim override are gated on `PadActive`.
 - The game has no keyboard movement, only gamepad axes and mouse click-to-move.
 
+## What the AnimBP does with the struct (decoded from ExecuteUbergraph bytecode)
+I scanned the cooked `A_Player_Animation` event graph for package-index references to the imported properties:
+```
+BlendSpacePlayer.X        = StateMachineConditions.RelativeMoveSpeed
+BlendSpacePlayer.PlayRate = FMax(StateMachineConditions.RelativeMoveSpeed, 1.0)
+LayeredBoneBlend(legs).BlendWeights[] = FClamp(StateMachineConditions.LocomotionWalkVariedPlayRate, 0?, 1.0)
+FallBackLocomotionBlend   → many state-machine transition conditions (byte/enum compares)
+```
+- **`LocomotionWalkVariedPlayRate` is not a play rate.** It drives the leg-layer blend weight: how much the legs follow the locomotion while the upper body plays an action. **Never override it.** Lowering it half-blends the legs out.
+- The blendspace's play rate is never below 1, so the AnimBP can't slow the walk below its 2× RateScale. To slow it, we use `Mesh.GlobalAnimRateScale`, applied only while `PadActive`, moving (velocity > 10) and **no montage is playing**, so attacks, rolls and artifacts keep normal speed. It's reset to 1 on EndPlay.
+
 ## Open questions
-- **Foot sliding:** the blendspace PlayRate comes from `LocomotionWalkVariedPlayRate`. Below WalkRun 0.3 the blend clamps to the pure walk (RateScale 2.0), so slow movement probably steps too fast. Overriding the play rate, tuned per speed, should fix it (plan Phase 2b).
+- **Foot sliding:** tune `GlobalAnimRateScale` per speed with the speed lock (Backslash) and `RateMul` ([ / ]), then fit a curve (plan Phase 2b).
 - Speed boosts (potions, Swiftfooted): does `BaseSpeed` follow them? Not tested yet.
 - Behaviour during rolls, attacks, and in missions (only camp has been tested).
