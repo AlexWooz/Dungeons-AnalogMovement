@@ -63,6 +63,32 @@ It works from the actual velocity, so it stays correct with speed boosts. Above 
 - **`\`**: cycles a speed lock through off / 0.2 / 0.35 / 0.5 / 0.75 / 1.0 of base speed. Push the stick fully and the mod holds that exact speed. The lock only applies while the readout is shown.
 - Tuning procedure: at each lock, trim until a planted foot stays still on the ground, then note **AnimRate**. Measure each lock starting from RateMul 1.0, and refit the formula from the AnimRate values (ground speed = speed / AnimRate). Don't ship a non-1 RateMul.
 
+## Weapon walk sets (v1.2)
+Equipping a weapon from one of five families **swaps the hero's anim instance** to a child AnimBP class with its own blendspace. Other weapons, and unarmed, use the base class. These are the class names, read from `Anim → GetClass → GetClassDisplayName` (the readout's `AnimBP` line):
+
+| Weapons | AnimBP class | Blendspace walk sample |
+|---|---|---|
+| Unarmed, swords, daggers, axes, maces, etc. | `A_Player_Animation_C` | `Player_Master_Walk` @ RateScale **2.0** |
+| Claymore family | `A_Player_Animation_Claymore_C` | `…_Walk_Claymore` @ **1.0** |
+| Spear / glaive family | `A_Player_Animation_Glaive_C` | `…_Walk_Glaive` @ **1.0** |
+| Great hammer family | `A_Player_Animation_Hammer_C` | `…_Walk_Hammer` @ **1.0** |
+| Katana family | `A_Player_Animation_Katana_C` | `…_Walk_Katana` @ **1.0** |
+| Scythe family | `A_Player_Animation_Scythe_C` | `…_Walk_Scythe` @ **1.0** |
+
+All walk sequences are 4.333 s and all runs 2.167 s, and every run sample is at RateScale 1.0.
+
+- **The anim instance is re-fetched every tick** (`Cast To CharacterAnimInstance(Char.Mesh.GetAnimInstance)` → `Anim`, or None on failure). Caching it in `Bind` broke after a weapon change: we kept writing `RelativeMoveSpeed` into the discarded instance, so the new one ran its native 1.167, which showed up as a slowed run.
+- **Weapon factor:** Unreal advances a blendspace by the weighted average of its samples' lengths. With a 1× walk sample, the weapon sets step up to twice as slowly the more walk is in the blend. Starting from that model (`1 + walk weight`), the factor was tuned in-game: at 75% speed it needed 1.5 instead of the model's 1.36, and at base speed it's exactly 1.
+  ```
+  WalkWeight   = MapRangeClamped(Vel, 180..350 -> 1..0.685)
+               + MapRangeClamped(Vel, 350..525 -> 0..-0.185)
+               + MapRangeClamped(Vel, 525..700 -> 0..-0.5)
+  WeaponFactor = (ClassDisplayName != "A_Player_Animation_C" AND IsValid(Anim)) ? 1 + WalkWeight : 1
+  AnimRate     = Clamp(Vel / GroundSpeed, 0.3, 1.0) * RateMul * WeaponFactor
+  ```
+  Weapon-set AnimRate at 20/35/50/75/100% speed: about 0.72, 1.12, 1.35, 1.38 and 1.0. Values above 1 are expected, since the native weapon walk plays slowly. Speed boosts above base speed get factor 1, which is the game's own timing.
+- **Unarmed right arm:** the right arm stays fairly stiff while walking. The AnimBP layers both arms from a separate pose with fixed weights (`LayeredBoneBlend` on `J_L_Arm`/`J_R_Arm`, which the graph never sets at runtime), so this is most likely the game's own behaviour, just easier to see at walking speed. It hasn't been compared against the vanilla game yet. Changing it would mean replacing the AnimBP.
+
 ## Lifecycle
 - **F8** toggles the debug readout (`W_AMDebug`), which is hidden by default. `SetText` only runs while it's shown.
 - **EndPlay**: on a level change, the actor removes its widget (otherwise the camp's readout stays frozen on screen in the mission) and resets `MaxWalkSpeed` and `GlobalAnimRateScale`. On **Quit** (`EndPlayReason == Quit`), it does nothing: calling `RemoveFromParent` during shutdown crashed the game on exit.
