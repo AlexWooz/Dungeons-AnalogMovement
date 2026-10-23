@@ -56,7 +56,7 @@ GroundSpeed = MapRangeClamped(Vel, 140..350 -> 389..437)
             + MapRangeClamped(Vel, 350..700 ->   0..263)
 AnimRate    = Clamp(Vel / GroundSpeed, 0.3, 1.0) * RateMul   // RateMul = 1; predicts 0.36, 0.595, 0.80, 0.92, 1.0
 ```
-It works from the actual velocity, so it stays correct with speed boosts. Above base speed it stays at 1, and the AnimBP's own `Max(RelativeMoveSpeed, 1)` play rate takes over.
+It works from the actual velocity, so it stays correct with speed boosts. At full speed it is 1 (see v1.3 below). Above base speed it also stays at 1, and the AnimBP's own `Max(RelativeMoveSpeed, 1)` play rate takes over.
 
 ### Tuning keys (only while the F8 readout is visible)
 - **`]` / `[`**: `RateMul` ±0.05 (min 0.05), a trim applied after the clamp.
@@ -88,6 +88,25 @@ All walk sequences are 4.333 s and all runs 2.167 s, and every run sample is at 
   ```
   Weapon-set AnimRate at 20/35/50/75/100% speed: about 0.72, 1.12, 1.35, 1.38 and 1.0. Values above 1 are expected, since the native weapon walk plays slowly. Speed boosts above base speed get factor 1, which is the game's own timing.
 - **Unarmed right arm:** the right arm stays fairly stiff while walking. The AnimBP layers both arms from a separate pose with fixed weights (`LayeredBoneBlend` on `J_L_Arm`/`J_R_Arm`, which the graph never sets at runtime), so this is most likely the game's own behaviour, just easier to see at walking speed. It hasn't been compared against the vanilla game yet. Changing it would mean replacing the AnimBP.
+
+## Full speed plays the native run (v1.3)
+Stride matching only runs below full speed. The AnimRate gate is `(PadActive OR MouseDown) AND Target < BaseSpeed AND no montage AND Vel > 10`. At full Mag (`Target == BaseSpeed`), AnimRate is exactly 1 for both the stick and the mouse. Without this gate, the steering dips in real velocity during turns (610–700 at Mag 1, very common with the mouse) went through the weapon factor and pushed the hammer set up to about 1.2. The speed lock still applies, because it lowers `Target`.
+
+## Mouse walk (v1.3)
+This works like Minecraft Dungeons II: while **Left Mouse Button is held**, the hero's speed and walk animation follow how close the cursor is to the hero. It reuses the stick pipeline, and no new variables were added:
+```
+MouseDown = PC.IsInputKeyDown(LeftMouseButton)            // polled every tick, no flag
+Ray       = PC.ConvertMouseLocationToWorldSpace           // deproject the cursor
+Hit       = LinePlaneIntersection(Ray, plane through Char.ActorLocation, normal Z)
+MouseMag  = MapRangeClamped(VectorLengthXY(Hit - Char.ActorLocation), 50..200 -> 0..1)
+Mag       = MouseDown ? MouseMag : MapRangeClamped(RawMag, Deadzone..0.95 -> 0..1)
+Active    = PadActive OR MouseDown                        // replaces PadActive in the speed, RelativeMoveSpeed and AnimRate gates
+```
+- Speed is `BaseSpeed × Max(Mag, MinScale)` as for the stick, so a cursor within 50 units gives 20%, and full speed is reached at 200. The far end was first set to 300 and lowered after testing so that slowing starts closer to the hero.
+- The cursor is intersected with the horizontal plane at the hero's height, not traced against the world, so walls and trees under the cursor don't change the distance.
+- **Releasing LMB** drops the gate, so the hero finishes the walk to the clicked spot at full speed. A single click behaves as it does in vanilla. Clicking a nearby enemy approaches it slowly while the button is held.
+- In a D2 reference video (1440p), a held cursor about 45–75 px from the hero gave a creep at roughly 10% speed, and 170 px or more gave full speed. 50/200 units with a 20% floor felt right in-game.
+- The nodes sit above the main tick chain in the EventGraph (`Active`, `MouseDown`, `MouseMag`, `MagSel`, `RateGate`). They were added headlessly with the Mod Kit's BPTool commandlet.
 
 ## Lifecycle
 - **F8** toggles the debug readout (`W_AMDebug`), which is hidden by default. `SetText` only runs while it's shown.

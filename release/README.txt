@@ -16,9 +16,11 @@ INSTALL
 
 CONTROLS
 - Left stick    Tilt to set your speed
+- Hold LMB      Speed follows how close the cursor is to the hero
+                (like Minecraft Dungeons II)
 - F8            Show/hide a debug readout (hidden by default)
 
-Mouse click-to-move is unchanged and still moves at full speed.
+A single click still walks to that spot at full speed.
 Works together with the Third-Person Camera mod.
 
 UNINSTALL
